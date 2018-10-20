@@ -15,16 +15,18 @@ public class FrameHarness {
     {
         // Local Variables
         GraphicsWindow gameWindow;
-        Picture sub; //subset of hub image being shown
         
         running = true;
-        gameWindow = new GraphicsWindow("GameTest",500,500,0);
+        gameWindow = new GraphicsWindow("GameTest",600,400,0);
         w = gameWindow;
         hub = new Picture("hubworld_test.jpg","hub");
-        //sub = new Picture(hub.);
-        
-        hub.scale(gameWindow.width,gameWindow.height);
-        gameWindow.setImg(hub);
+        Picture Otest = new Picture("HubbleOverlay2.jpg","ho");
+        Otest.scale(300, 100);
+        //System.out.println(hub.width + " " + hub.height);
+        w.setSub(hub); // display subset of larger hubworld image
+        w.addOverlay(Otest, 20, 300, true);
+        w.overlay(true);
+        w.centreCursor(false);
         
         run();
     }
@@ -38,7 +40,11 @@ public class FrameHarness {
         {
             if (System.currentTimeMillis()>=(lastTime+diff))
             {
-                w.update();
+                try {
+                    w.setSub(hub); //if (w.l || w.r || w.u || w.d) 
+                    w.update();
+                }
+                catch (Exception e){}
             }
         }
     }

@@ -13,6 +13,7 @@ public class Picture {
     // Image Data
     String title;
     int[] pixels;
+    int eventMap[];
     BufferedImage img;
     int width;
     int height;
@@ -27,6 +28,7 @@ public class Picture {
             width = img.getWidth();
             height = img.getHeight();
             pixels = new int[width*height];
+            eventMap = new int[pixels.length];
             updatePxls();
             System.out.println("/images/"+path+": "+"Load Successful");
         }
@@ -40,7 +42,7 @@ public class Picture {
         this.title = title;
         this.width=width;
         this.height=height;
-        img = new BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);
+        img = new BufferedImage(width,height,BufferedImage.TYPE_INT_ARGB);
         pixels = new int[width*height];
     }
     
@@ -73,21 +75,27 @@ public class Picture {
         }
     }
     
+    /**
+     * Nearest neighbour algorithm to scale image to target dimensions [NOTE: event map is overwritten]
+     * @param width Target width
+     * @param height Target height
+     */
     public void scale(int width, int height)
     {
         if (img==null)System.out.println("Null Image");
-        BufferedImage temp = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        double rw,rh;
+        BufferedImage temp = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        double rx,ry;
         int x,y;
         
         for (int h=0;h<height;h++)
         {
+            ry = h/(double)height;
+            y = (int)(ry*this.height);
             for (int w=0;w<width;w++)
             {
-                rw = (w/(double)width); // calculate ratio for width
-                rh = (h/(double)height); //ratio for height
-                x = (int)(width*rw);
-                y = (int)(height*rh);
+                rx = w/(double)width;
+                x = (int)(rx*this.width);
+                
                 temp.setRGB(w,h,img.getRGB(x,y));
                 //System.out.println(rh + ", " + y);
             }
@@ -96,6 +104,26 @@ public class Picture {
         this.width = width;
         this.height = height;
         pixels = new int[this.width*this.height];
+        eventMap = new int[pixels.length];
         updatePxls();
+    }
+
+    // ties entire event map to single event code
+    public void addEvent(int eventcode)
+    {
+        for (int i=0;i<pixels.length;i++)eventMap[i]=eventcode;
+    }
+    
+    /**
+     * Ties a block of pixels to a specific event 
+     * @param eventcode
+     * @param x The top left x coordinate of 
+     * @param y
+     * @param w
+     * @param h 
+     */
+    public void addEvent(int eventcode, int x, int y, int w, int h)
+    {
+        
     }
 }
