@@ -15,5 +15,8 @@ public interface Crossword {
        public void setReward (double x, double y, double z);
        public double getX ();
        public double getY();
-       public double getZ();       
+       public double getZ();
+       public void setX(double x);
+       public void setY (double y);
+       public void setZ(double z);
 }
