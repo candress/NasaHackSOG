@@ -6,6 +6,8 @@
 package nasahacksog;
 
 import java.awt.*;
+import static java.awt.BorderLayout.CENTER;
+import static java.awt.BorderLayout.SOUTH;
 import static java.awt.Font.ROMAN_BASELINE;
 import java.awt.GridLayout.*;
 import java.awt.event.ActionEvent;
@@ -27,13 +29,14 @@ public class MinesweepImpl implements ActionListener {
     private int tiles, bomb;
     private int[][] map;
     private JButton[] mineField;
-    private JButton lose, win;
+    private JButton lose, win,message;
     private JPanel game, instruction;
     private BorderLayout border;
-
+    private int size;
+    
     public MinesweepImpl() {
         //  setReward(x, y, z);
-        setScreen(500, 500, 1);
+        setScreen(400, 600, 0);
         tiles = 50;
         bomb = 0;
         dead = false;
@@ -49,7 +52,7 @@ public class MinesweepImpl implements ActionListener {
 
     private void displayInstruction() {
         instruction = new JPanel();
-        Font timeRoman = new Font("Roman", ROMAN_BASELINE, 24);
+        Font timeRoman = new Font("Roman", ROMAN_BASELINE, size/40);
         JTextField text = new JTextField("Minesweeper: Click on a tile to see if a bomb is present. There's a total of " + bomb + " bombs.");
         //   text.setPreferredSize(new Dimension(100,100));
         //  instruction.setPreferredSize(new Dimension(100,100));
@@ -137,10 +140,12 @@ public class MinesweepImpl implements ActionListener {
         if (fullscreen == 0) {
             this.height = height;
             this.width = width;
+            size = width;
         } else {
             Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
             height = (int) screenSize.getHeight();
             width = (int) screenSize.getWidth();
+            size = width;
         }
         display.setSize(width, height);
         display.setResizable(false);
@@ -200,11 +205,15 @@ public class MinesweepImpl implements ActionListener {
             display.remove(mineField[i]);
         }
         display.remove(game);
+        display.setLayout(new BorderLayout());
         display.remove(instruction);
         win = new JButton("Victory!");
-        display.add(win);
+        message = new JButton ("Click anywhere to continue");
+        display.add(message,SOUTH);
+        display.add(win,CENTER);
         display.setVisible(true);
         win.addActionListener(this);
+        message.addActionListener(this);
 
     }
 
@@ -241,6 +250,10 @@ public class MinesweepImpl implements ActionListener {
             done = true;
             display.dispose();
         }
+        else if(e.getSource()==message){
+            done = true;
+            display.dispose();
+        }
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 5; j++) {
                 if (e.getSource() == mineField[i * 5 + j]) {
@@ -265,4 +278,3 @@ public class MinesweepImpl implements ActionListener {
         }
     }
 }
-//CROSSWORD anonomly
