@@ -3,6 +3,8 @@ package graphicswindow;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.image.*;
 import javax.swing.*;
 
@@ -11,10 +13,11 @@ import javax.swing.*;
  * @author Tennyson Demchuk
  * @date 10.19.2018
  */
-public class GraphicsWindow implements KeyListener {
+public class GraphicsWindow implements KeyListener, MouseListener {
 
     // Frame Object
     private JFrame f;
+    private boolean isActive;
     // Location Data
     int xloc, yloc;
     // Image Data
@@ -22,6 +25,11 @@ public class GraphicsWindow implements KeyListener {
     private BufferedImage img;
     private int[] imgOverlay;
     boolean showOverlay;
+    //custom event data
+    private int[] eventMap;
+    private int[] oEventMap;
+    private Event[] events; // specific events to be run
+    private int eventcode;  // what event is to be run
     //custom cursors
     private Cursor blankCursor;
     private Cursor selectCursor;
@@ -37,9 +45,10 @@ public class GraphicsWindow implements KeyListener {
     // Class constants
     final int FULLSCREEN = 1;
     
-    public GraphicsWindow(String t,int w, int h, int fs) //frame title, min width, min height, fullscreen mode
+    public GraphicsWindow(String t,int w, int h, int fs, boolean active) //frame title, min width, min height, fullscreen mode, active window
     {
         f = new JFrame();
+        isActive = active;
         
         if (fs==1) {
             this.width = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDisplayMode().getWidth();
@@ -58,6 +67,11 @@ public class GraphicsWindow implements KeyListener {
         imgOverlay = new int[pixels.length]; // all blank img overlay
         showOverlay = true;
         
+        eventMap = new int[pixels.length];
+        oEventMap = new int[pixels.length]; //overlay events
+        events = null;
+        clearEventCode();
+        
         //setup cursors
         setupCursors();
         
@@ -67,9 +81,13 @@ public class GraphicsWindow implements KeyListener {
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         f.setResizable(false);
         f.setUndecorated(true);
-        f.setVisible(true);
+        f.setVisible(isActive);
         
-        f.addKeyListener(this);
+        if (isActive) {
+            f.addKeyListener(this);
+            f.addMouseListener(this);
+        }
+
         
         xloc = f.getLocation().x;
         yloc = f.getLocation().y;
@@ -85,13 +103,54 @@ public class GraphicsWindow implements KeyListener {
         clear();
     }
     
+    public int getEventCode()
+    {
+        return eventcode; // returns the event code
+    }
+    
+    public void clearEventCode()
+    {
+        eventcode = 0;
+    }
+    
+    public boolean isActive()
+    {
+        return isActive;
+    }
+    
+    public void setActive()
+    {
+        if (isActive) return;
+        isActive = true;
+        f.setVisible(true);
+        f.addKeyListener(this);
+        f.addMouseListener(this);
+    }
+    
+    public void deactivate()
+    {
+        if (!isActive) return;
+        isActive = false;
+        f.setVisible(false);
+        f.removeKeyListener(this);
+        f.removeMouseListener(this);
+    }
+    
     //clears screen to black
     public void clear()
     {
         for (int i=0;i<pixels.length;i++){
             pixels[i]=0;
             imgOverlay[i]=0;
+            eventMap[i]=0;
+            oEventMap[i]=0;
         }
+    }
+    
+    // add custom events that can be run
+    public void importEvents(Event[] e)
+    {
+        events = e;
     }
     
     //returns an updated dimension containing the frame coordinates in pixels relative to the display 
@@ -136,12 +195,19 @@ public class GraphicsWindow implements KeyListener {
         BufferedImage blankCursorImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB); //blank image
         BufferedImage selectImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         BufferedImage hoverImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int x=0;x<4;x++)
-        {
-            for (int y=0;y<4;y++)
-            {
-                selectImage.setRGB(x,y,Color.GREEN.getRGB());
-                hoverImage.setRGB(x,y,Color.RED.getRGB());
+        
+        int cSize = 5; //cursor size
+        
+        for (int drawx=0; drawx < cSize; drawx++) {
+            
+            //if the current x coordinate isnt the centre of the screen, then the height of the crosshair in that pixel column will be maxdrawy
+            int maxdrawy = 1;
+            //otherwise, the height will be cSize pixels
+            if (drawx == cSize / 2) maxdrawy = cSize;
+            //draws the crosshair to the pixel array
+            for (int drawy = (int) (Math.ceil((double)cSize/2.0)-maxdrawy/2); drawy < Math.ceil((double)cSize/2.0) + maxdrawy; drawy++) {
+                selectImage.setRGB(drawx,drawy,Color.GREEN.getRGB());
+                hoverImage.setRGB(drawx,drawy,Color.RED.getRGB());
             }
         }
         
@@ -154,7 +220,8 @@ public class GraphicsWindow implements KeyListener {
     public void close()
     {
         f.dispose();
-        System.exit(0);
+        isActive=false;
+        //System.exit(0);
     }
     
     /**
@@ -169,6 +236,7 @@ public class GraphicsWindow implements KeyListener {
             {
                 if (imgOverlay[i]!=0 && showOverlay) pixels[i]=imgOverlay[i];
                 else pixels[i]=p.pixels[i];
+                eventMap[i]=p.eventMap[i];//copy over eventMap
             }
             update(); // pushes image to buffer
         }
@@ -205,6 +273,9 @@ public class GraphicsWindow implements KeyListener {
             xoff=((xoff + MOVESPEED)+m.width)%m.width;
         }
         
+        //clear eventMap
+        eventMap=new int[pixels.length];
+        
         //System.out.println("xff: "  + xoff + ", yff: " + yoff + ", MV: " + MOVESPEED);
 
         //loop through coordinates in sub in row-major order
@@ -222,6 +293,8 @@ public class GraphicsWindow implements KeyListener {
                 mi = mx+(my*m.width);
                 if (imgOverlay[si]!=0 && showOverlay) pixels[si] = imgOverlay[si];
                 else pixels[si]=m.pixels[mi];
+                
+                if (oEventMap[si]==0) eventMap[si]=m.eventMap[mi]; // copy eventMap from image if there isnt an event from an overlay
             }
         }
         update(); // push image to buffer
@@ -252,9 +325,18 @@ public class GraphicsWindow implements KeyListener {
                 oi = x+(y*p.width);
                 di = dx+(dy*this.width);
                 if (greenScreen) {
-                    if (p.pixels[oi]!=p.pixels[0]) imgOverlay[di] = p.pixels[oi]; // if the current rbg doesnt equal the overlay's green screen value, draw it
+                    if (p.pixels[oi]!=p.pixels[0]) // if the current rbg doesnt equal the overlay's green screen value, draw it
+                    {
+                        imgOverlay[di] = p.pixels[oi];
+                        oEventMap[di] = p.eventMap[oi]; //write to overlay event map [for backup]
+                        eventMap[di] = oEventMap[di]; // write to event map
+                    } 
                 }
-                else imgOverlay[di] = p.pixels[oi];
+                else {
+                    imgOverlay[di] = p.pixels[oi];
+                    oEventMap[di] = p.eventMap[oi]; //write to overlay event map [for backup]
+                    eventMap[di] = oEventMap[di]; // write to event map
+                }
             }
         }
     }
@@ -265,19 +347,36 @@ public class GraphicsWindow implements KeyListener {
         else showOverlay = false;
     }
     
+    private void detectEvent()
+    {
+        int x,y; //coordinates of cursor currently on screen
+        int i;   // eventMap index
+        x = MouseInfo.getPointerInfo().getLocation().x - f.getLocationOnScreen().x;
+        y = MouseInfo.getPointerInfo().getLocation().y - f.getLocationOnScreen().y;
+        i = x+(y*this.width);
+
+        // check event map
+        if (eventMap[i]>0)
+        {
+            eventcode = eventMap[i]; // set event code if there is one
+        }
+    }
+    
     //method draws the contents of the pixel array to a buffer which is then outputted from the screen
     //This method was basically directly copied from the tutorial found here: http://www.instructables.com/id/Making-a-Basic-3D-Engine-in-Java/
     public void update() {
-        centreCursor(centreC);
-        // Update Graphics
-        BufferStrategy buffstrat = f.getBufferStrategy(); //creates a new buffer strategy for triple buffering the output image
-           if (buffstrat == null) {
-                f.createBufferStrategy(3); // Triple buffering requires 3 calls to update before image data is drawn
-                return;
-           }
-           Graphics g = buffstrat.getDrawGraphics();
-           g.drawImage(img, 0, 0, this.width, this.height, null);
-           buffstrat.show();
+        if (isActive){
+            centreCursor(centreC);
+            // Update Graphics
+            BufferStrategy buffstrat = f.getBufferStrategy(); //creates a new buffer strategy for triple buffering the output image
+               if (buffstrat == null) {
+                    f.createBufferStrategy(3); // Triple buffering requires 3 calls to update before image data is drawn
+                    return;
+               }
+               Graphics g = buffstrat.getDrawGraphics();
+               g.drawImage(img, 0, 0, this.width, this.height, null);
+               buffstrat.show();
+        }
     }
     
     @Override
@@ -285,10 +384,18 @@ public class GraphicsWindow implements KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-        if (e.getKeyCode()==KeyEvent.VK_ESCAPE) 
+        // close Graphics Window object
+        if (e.getKeyCode()==KeyEvent.VK_ESCAPE)
         {
+            System.exit(0);
             close();
         }
+        // Check for interactable element
+        if (e.getKeyCode()==KeyEvent.VK_ENTER)
+        {
+            detectEvent();
+        }
+        // keyboard movement
         if (e.getKeyCode()==KeyEvent.VK_UP) 
         {
             u=true;
@@ -325,5 +432,27 @@ public class GraphicsWindow implements KeyListener {
         {
             r=false;
         }
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e) 
+    {
+        detectEvent();
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
     }
 }

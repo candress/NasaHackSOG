@@ -5,5 +5,7 @@ package graphicswindow;
  * @author Tennyson Demchuk
  */
 public interface Event {
-    public void action();
+    final int CLOSE_GAME_EVENT = 1;
+    final int DECENTRALIZE_MOUSE_EVENT = 2;
+    public void action(FrameHarness fh);
 }
